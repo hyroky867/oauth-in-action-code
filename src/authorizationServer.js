@@ -1,8 +1,8 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cons from 'consolidate';
-import _ from 'underscore';
-import _s from 'underscore.string';
+import __ from 'underscore';
+import __s from 'underscore.string';
 import randomstring from 'randomstring';
 import nosql from 'nosql';
 import url from 'url';
@@ -31,9 +31,9 @@ const authServer = {
 // client information
 const clients = [
   {
-    client_id: 'oauth-client-1',
-    client_secret: 'oauth-client-secret-1',
-    redirect_uris: ['http://localhost:9000/callback'],
+    clientId: 'oauth-client-1',
+    clientSecret: 'oauth-client-secret-1',
+    redirectUris: ['http://localhost:9000/callback'],
     scope: 'foo bar',
   },
 ];
@@ -42,9 +42,9 @@ const codes = {};
 
 const requests = {};
 
-const getClient = (clientId) => _.find(clients, (client) => client.client_id === clientId);
+const getClient = (clientId) => __.find(clients, (client) => client.clientId === clientId);
 
-app.get('/', (__, res) => {
+app.get('/', (_, res) => {
   res.render('index', {
     clients,
     authServer,
@@ -52,26 +52,26 @@ app.get('/', (__, res) => {
 });
 
 app.get('/authorize', (req, res) => {
-  const client = getClient(req.query.client_id);
-
+  const client = getClient(req.query.clientId);
+  console.log(client);
   if (!client) {
-    console.log('Unknown client %s', req.query.client_id);
+    console.log('Unknown client %s', req.query.clientId);
     res.render('error', {
       error: 'Unknown client',
     });
-  } else if (!_.contains(client.redirect_uris, req.query.redirect_uri)) {
+  } else if (!__.contains(client.redirectUris, req.query.redirectUri)) {
     console.log(
       'Mismatched redirect URI, expected %s got %s',
-      client.redirect_uris,
-      req.query.redirect_uri,
+      client.redirectUris,
+      req.query.redirectUri,
     );
     res.render('error', { error: 'Invalid redirect URI' });
   } else {
     const rscope = req.query.scope ? req.query.scope.split(' ') : undefined;
     const cscope = client.scope ? client.scope.split(' ') : undefined;
-    if (_.difference(rscope, cscope).length > 0) {
+    if (__.difference(rscope, cscope).length > 0) {
       // client asked for a scope it couldn't have
-      const urlParsed = url.parse(req.query.redirect_uri);
+      const urlParsed = url.parse(req.query.redirectUri);
       delete urlParsed.search; // this is a weird behavior of the URL library
       urlParsed.query = urlParsed.query || {};
       urlParsed.query.error = 'invalid_scope';
@@ -103,20 +103,20 @@ app.post('/approve', (req, res) => {
   }
 
   if (req.body.approve) {
-    if (query.response_type === 'code') {
+    if (query.responseType === 'code') {
       // user approved access
       const code = randomstring.generate(8);
 
       const { user } = req.body;
 
-      const scope = _.filter(_.keys(req.body), (s) => _s.startsWith(s, 'scope_')).map((s) =>
+      const scope = __.filter(__.keys(req.body), (s) => __s.startsWith(s, 'scope_')).map((s) =>
         s.slice('scope_'.length),
       );
-      const client = getClient(query.client_id);
+      const client = getClient(query.clientId);
       const cscope = client.scope ? client.scope.split(' ') : undefined;
-      if (_.difference(scope, cscope).length > 0) {
+      if (__.difference(scope, cscope).length > 0) {
         // client asked for a scope it couldn't have
-        const urlParsed = url.parse(query.redirect_uri);
+        const urlParsed = url.parse(query.redirectUri);
         delete urlParsed.search; // this is a weird behavior of the URL library
         urlParsed.query = urlParsed.query || {};
         urlParsed.query.error = 'invalid_scope';
@@ -125,9 +125,13 @@ app.post('/approve', (req, res) => {
       }
 
       // save the code and request for later
-      codes[code] = { authorizationEndpointRequest: query, scope, user };
+      codes[code] = {
+        authorizationEndpointRequest: query,
+        scope,
+        user,
+      };
 
-      const urlParsed = url.parse(query.redirect_uri);
+      const urlParsed = url.parse(query.redirectUri);
       delete urlParsed.search; // this is a weird behavior of the URL library
       urlParsed.query = urlParsed.query || {};
       urlParsed.query.code = code;
@@ -135,7 +139,7 @@ app.post('/approve', (req, res) => {
       res.redirect(url.format(urlParsed));
     } else {
       // we got a response type we don't understand
-      const urlParsed = url.parse(query.redirect_uri);
+      const urlParsed = url.parse(query.redirectUri);
       delete urlParsed.search; // this is a weird behavior of the URL library
       urlParsed.query = urlParsed.query || {};
       urlParsed.query.error = 'unsupported_response_type';
@@ -143,7 +147,7 @@ app.post('/approve', (req, res) => {
     }
   } else {
     // user denied access
-    const urlParsed = url.parse(query.redirect_uri);
+    const urlParsed = url.parse(query.redirectUri);
     delete urlParsed.search; // this is a weird behavior of the URL library
     urlParsed.query = urlParsed.query || {};
     urlParsed.query.error = 'access_denied';
@@ -166,16 +170,18 @@ app.post('/token', (req, res) => {
   }
 
   // otherwise, check the post body
-  if (req.body.client_id) {
+  if (req.body.clientId) {
     if (clientId) {
       // if we've already seen the client's credentials in the authorization header, this is an error
       console.log('Client attempted to authenticate with multiple methods');
-      res.status(401).json({ error: 'invalid_client' });
+      res.status(401).json({
+        error: 'invalid_client',
+      });
       return;
     }
 
-    clientId = req.body.client_id;
-    clientSecret = req.body.client_secret;
+    clientId = req.body.clientId;
+    clientSecret = req.body.clientSecret;
   }
 
   const client = getClient(clientId);
@@ -185,18 +191,18 @@ app.post('/token', (req, res) => {
     return;
   }
 
-  if (client.client_secret !== clientSecret) {
-    console.log('Mismatched client secret, expected %s got %s', client.client_secret, clientSecret);
+  if (client.clientSecret !== clientSecret) {
+    console.log('Mismatched client secret, expected %s got %s', client.clientSecret, clientSecret);
     res.status(401).json({ error: 'invalid_client' });
     return;
   }
 
-  if (req.body.grant_type === 'authorization_code') {
+  if (req.body.grantType === 'authorization_code') {
     const code = codes[req.body.code];
 
     if (code) {
       delete codes[req.body.code]; // burn our code, it's been used
-      if (code.authorizationEndpointRequest.client_id === clientId) {
+      if (code.authorizationEndpointRequest.clientId === clientId) {
         const accessToken = randomstring.generate();
 
         let cscope = null;
@@ -205,8 +211,8 @@ app.post('/token', (req, res) => {
         }
 
         nosql.insert({
-          access_token: accessToken,
-          client_id: clientId,
+          accessToken,
+          clientId,
           scope: cscope,
         });
 
@@ -214,8 +220,8 @@ app.post('/token', (req, res) => {
         console.log('with scope %s', cscope);
 
         const tokenResponse = {
-          access_token: accessToken,
-          token_type: 'Bearer',
+          accessToken,
+          tokenType: 'Bearer',
           scope: cscope,
         };
 
@@ -224,18 +230,24 @@ app.post('/token', (req, res) => {
       } else {
         console.log(
           'Client mismatch, expected %s got %s',
-          code.authorizationEndpointRequest.client_id,
+          code.authorizationEndpointRequest.clientId,
           clientId,
         );
-        res.status(400).json({ error: 'invalid_grant' });
+        res.status(400).json({
+          error: 'invalid_grant',
+        });
       }
     } else {
       console.log('Unknown code, %s', req.body.code);
-      res.status(400).json({ error: 'invalid_grant' });
+      res.status(400).json({
+        error: 'invalid_grant',
+      });
     }
   } else {
-    console.log('Unknown grant type %s', req.body.grant_type);
-    res.status(400).json({ error: 'unsupported_grant_type' });
+    console.log('Unknown grant type %s', req.body.grantType);
+    res.status(400).json({
+      error: 'unsupported_grant_type',
+    });
   }
 });
 

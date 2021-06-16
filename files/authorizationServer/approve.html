@@ -40,31 +40,31 @@
 
     <div class="jumbotron">
       <h2>Approve this client?</h2>
-      <% if (client.client_name) { %>
+      <% if (client.clientName) { %>
         <p>
           <b>Name:</b>
           <code>
-            <%- client.client_name %>
+            <%- client.clientName %>
           </code>
         </p>
         <% } %>
           <p>
             <b>ID:</b>
             <code>
-              <%- client.client_id %>
+              <%- client.clientId %>
             </code>
           </p>
-          <% if (client.client_uri) { %>
+          <% if (client.clientUri) { %>
             <p>
               <b>URI:</b> <code>
-                <%- client.client_uri %>
+                <%- client.clientUri %>
               </code>
             </p>
             <% } %>
-              <% if (client.logo_uri) { %>
+              <% if (client.logoUri) { %>
                 <p>
                   <b>logo:</b>
-                  <img src="<%- client.logo_uri %>" />
+                  <img src="<%- client.logoUri %>" />
                 </p>
                 <% } %>
 

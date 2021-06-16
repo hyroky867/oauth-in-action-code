@@ -24,9 +24,9 @@ const authServer = {
  * Add the client information in here
  */
 const client = {
-  client_id: 'oauth-client-1',
-  client_secret: 'oauth-client-secret-1',
-  redirect_uris: ['http://localhost:9000/callback'],
+  clientId: 'oauth-client-1',
+  clientSecret: 'oauth-client-secret-1',
+  redirectUris: ['http://localhost:9000/callback'],
 };
 
 const protectedResource = 'http://localhost:9002/resource';
@@ -58,7 +58,7 @@ const encodeClientCredentials = (clientId, clientSecret) =>
 
 app.get('/', (_, res) => {
   res.render('index', {
-    access_token: accessToken,
+    accessToken,
     scope,
   });
 });
@@ -66,9 +66,9 @@ app.get('/', (_, res) => {
 app.get('/authorize', (_, res) => {
   state = randomstring.generate();
   const authorizeUrl = buildUrl(authServer.authorizationEndpoint, {
-    response_type: 'code',
-    client_id: client.client_id,
-    redirect_uri: client.redirect_uris[0],
+    responseType: 'code',
+    clientId: client.clientId,
+    redirectUri: client.redirectUris[0],
     state,
   });
 
@@ -80,14 +80,14 @@ app.get('/callback', (req, res) => {
   const { code } = req.query;
 
   const formData = qs.stringify({
-    grant_type: 'authorization_code',
+    grantType: 'authorization_code',
     code,
-    redirect_uri: client.redirect_uris[0],
+    redirectUri: client.redirectUris[0],
   });
 
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
-    Authorization: `Basic ${encodeClientCredentials(client.client_id, client.client_secret)}`,
+    Authorization: `Basic ${encodeClientCredentials(client.clientId, client.clientSecret)}`,
   };
 
   const tokRes = request('post', authServer.tokenEndpoint, {
@@ -97,10 +97,10 @@ app.get('/callback', (req, res) => {
 
   const body = JSON.parse(tokRes.getBody());
 
-  accessToken = body.access_token;
+  accessToken = body.accessToken;
 
   res.render('index', {
-    access_token: body.access_token,
+    accessToken,
     scope,
   });
 });

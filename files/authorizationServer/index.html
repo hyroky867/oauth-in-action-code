@@ -42,17 +42,17 @@
       <h2>Client information:</h2>
       <% _.each(clients, function(client) { %>
         <ul>
-          <li><b>client_id:</b> <code>
-              <%- client.client_id %>
+          <li><b>clientId:</b> <code>
+              <%- client.clientId %>
             </code></li>
-          <li><b>client_secret:</b> <code>
-              <%- client.client_secret %>
+          <li><b>clientSecret:</b> <code>
+              <%- client.clientSecret %>
             </code></li>
           <li><b>scope:</b> <code>
               <%- client.scope %>
             </code></li>
           <li><b>redirect_uri:</b> <code>
-              <%- client.redirect_uris %>
+              <%- client.redirectUris %>
             </code></li>
         </ul>
         <% }); %>

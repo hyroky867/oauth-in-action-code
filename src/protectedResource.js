@@ -31,24 +31,24 @@ const getAccessToken = (req, _, next) => {
   let inToken = null;
   if (auth && auth.toLowerCase().indexOf('bearer') === 0) {
     inToken = auth.slice('bearer '.length);
-  } else if (req.body && req.body.access_token) {
+  } else if (req.body && req.body.accessToken) {
     // not in the header, check in the form body
-    inToken = req.body.access_token;
-  } else if (req.query && req.query.access_token) {
-    inToken = req.query.access_token;
+    inToken = req.body.accessToken;
+  } else if (req.query && req.query.accessToken) {
+    inToken = req.query.accessToken;
   }
 
   console.log('Incoming token: %s', inToken);
   nosql.one().make((builder) => {
     console.log(builder);
-    builder.where('access_token', inToken);
+    builder.where('accessToken', inToken);
     builder.callback((token) => {
       if (token) {
         console.log('We found a matching token: %s', inToken);
       } else {
         console.log('No matching token was found.');
       }
-      req.access_token = token;
+      req.accessToken = token;
       next();
     });
   });
@@ -56,7 +56,7 @@ const getAccessToken = (req, _, next) => {
 
 app.options('/resource', cors());
 app.post('/resource', cors(), getAccessToken, (req, res) => {
-  if (req.access_token) {
+  if (req.accessToken) {
     res.json(resource);
   } else {
     res.status(401).end();
