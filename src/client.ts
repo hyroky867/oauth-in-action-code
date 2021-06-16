@@ -2,9 +2,9 @@ import express, { Express, Response, Request } from 'express';
 import cons from 'consolidate';
 import _, { has, string } from 'underscore';
 import _s from 'underscore.string';
+import nosql from 'nosql';
 import { AuthServer, Client } from './types/Authorization';
 // @ts-ignore
-import nosql from 'nosql';
 
 nosql.load('database.nosql');
 
@@ -42,13 +42,13 @@ app.get('/authorize', (req, res) => {
    */
 });
 
-app.get('/callback', function (req, res) {
+app.get('/callback', (req, res) => {
   /*
    * Parse the response from the authorization server and get a token
    */
 });
 
-app.get('/fetch_resource', function (req, res) {
+app.get('/fetch_resource', (req, res) => {
   /*
    * Use the access token to call the resource server
    */

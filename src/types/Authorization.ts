@@ -52,7 +52,6 @@ export interface TokenRequest extends Request {
   };
 }
 
-type accessTokenBodyKeys = 'access_token';
 type accessTokenQueryKeys = 'access_token';
 
 export interface AccessTokenRequest extends Request {

@@ -3,6 +3,9 @@ import bodyParser from 'body-parser';
 import cons from 'consolidate';
 import _ from 'underscore';
 import _s from 'underscore.string';
+import randomstring from 'randomstring';
+// @ts-ignore
+import nosql from 'nosql';
 import {
   AuthServer,
   Client,
@@ -12,9 +15,6 @@ import {
   TokenRequest,
   Code,
 } from './types/Authorization';
-import randomstring from 'randomstring';
-// @ts-ignore
-import nosql from 'nosql';
 
 nosql.load('database.nosql');
 
@@ -48,11 +48,8 @@ const clients: Client[] = [
   },
 ];
 
-const getClient = (clientId: string) => {
-  return _.find(clients, (client: Client) => {
-    return client.clientId === clientId;
-  });
-};
+const getClient = (clientId: string) =>
+  _.find(clients, (client: Client) => client.clientId === clientId);
 
 app.get('/', (_: Request, res: Response): void => {
   res.render('index', {
@@ -61,7 +58,7 @@ app.get('/', (_: Request, res: Response): void => {
   });
 });
 
-let requests: {
+const requests: {
   [key: string]: AuthorizeParsedQs;
 } = {};
 
@@ -71,7 +68,6 @@ app.get('/authorize', (req: AuthorizeRequest, res: Response): void => {
   if (!client) {
     console.log('Unknown client %s', req.query.client_id);
     res.render('error', { error: 'Unknown client' });
-    return;
   } else if (!_.contains(client.redirectUris, req.query.redirect_uri)) {
     console.log(
       'Mismatched redirect URI, expected %s got %s',
@@ -81,7 +77,6 @@ app.get('/authorize', (req: AuthorizeRequest, res: Response): void => {
     res.render('error', {
       error: 'Invalid redirect URI',
     });
-    return;
   } else {
     const rscope = req.query.scope ? req.query.scope.split(' ') : '';
     const cscope = client.scope ? client.scope.split(' ') : '';
@@ -98,20 +93,19 @@ app.get('/authorize', (req: AuthorizeRequest, res: Response): void => {
     requests[reqid] = req.query;
 
     res.render('approve', {
-      client: client,
-      reqid: reqid,
+      client,
+      reqid,
       scope: rscope,
     });
-    return;
   }
 });
 
-let codes: {
+const codes: {
   [key: string]: Code;
 } = {};
 
 app.post('/approve', (req: ApproveRequest, res: Response): void => {
-  const reqid = req.body.reqid;
+  const { reqid } = req.body;
   const query = requests[reqid];
   delete requests[reqid];
 
@@ -129,7 +123,7 @@ app.post('/approve', (req: ApproveRequest, res: Response): void => {
       // user approved access
       const code = randomstring.generate(8);
 
-      const user = req.body.user;
+      const { user } = req.body;
 
       const scope = _.filter(_.keys(req.body), (s: string) => _s.startsWith(s, 'scope_')).map(
         (s: string) => s.slice('scope_'.length),
@@ -165,23 +159,20 @@ app.post('/approve', (req: ApproveRequest, res: Response): void => {
       }
 
       res.redirect(url.toString());
-      return;
     } else {
       // we got a response type we don't understand
       url.searchParams.append('error', 'unsupported_response_type');
       res.redirect(url.toString());
-      return;
     }
   } else {
     // user denied access
     url.searchParams.append('error', 'access_denied');
     res.redirect(url.toString());
-    return;
   }
 });
 
 app.post('/token', (req: TokenRequest, res: Response): void => {
-  const auth = req.headers['authorization'];
+  const auth = req.headers.authorization;
   let clientId = '';
   let clientSecret = '';
   if (auth) {
@@ -206,7 +197,7 @@ app.post('/token', (req: TokenRequest, res: Response): void => {
     clientSecret = req.body.client_secret;
   }
 
-  var client = getClient(clientId);
+  const client = getClient(clientId);
   if (!client) {
     console.log('Unknown client %s', clientId);
     res.status(401).json({
@@ -231,7 +222,7 @@ app.post('/token', (req: TokenRequest, res: Response): void => {
       if (code.authorizationEndpointRequest.client_id == clientId) {
         const accessToken = randomstring.generate();
 
-        var cscope = null;
+        let cscope = null;
         if (code.scope) {
           cscope = code.scope.join(' ');
         }
@@ -253,8 +244,6 @@ app.post('/token', (req: TokenRequest, res: Response): void => {
 
         res.status(200).json(tokenResponse);
         console.log('Issued tokens for code %s', req.body.code);
-
-        return;
       } else {
         console.log(
           'Client mismatch, expected %s got %s',
@@ -264,14 +253,12 @@ app.post('/token', (req: TokenRequest, res: Response): void => {
         res.status(400).json({
           error: 'invalid_grant',
         });
-        return;
       }
     } else {
       console.log('Unknown code, %s', req.body.code);
       res.status(400).json({
         error: 'invalid_grant',
       });
-      return;
     }
   } else {
     console.log('Unknown grant type %s', req.body.grant_type);
