@@ -4,7 +4,7 @@ import cons from 'consolidate';
 import __ from 'underscore';
 import __s from 'underscore.string';
 import randomstring from 'randomstring';
-import nosql from 'nosql';
+// import nosql from 'nosql';
 import url from 'url';
 import querystring from 'querystring';
 
@@ -21,6 +21,8 @@ app.engine('html', cons.underscore);
 app.set('view engine', 'html');
 app.set('views', 'files/authorizationServer');
 app.set('json spaces', 4);
+
+// nosql.load('database.nosql');
 
 // authorization server information
 const authServer = {
@@ -210,11 +212,11 @@ app.post('/token', (req, res) => {
           cscope = code.scope.join(' ');
         }
 
-        nosql.insert({
-          accessToken,
-          clientId,
-          scope: cscope,
-        });
+        // nosql.insert({
+        //   access_token: accessToken,
+        //   client_id: clientId,
+        //   scope: cscope,
+        // });
 
         console.log('Issuing access token %s', accessToken);
         console.log('with scope %s', cscope);

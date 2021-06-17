@@ -1,10 +1,11 @@
-import express, { request } from 'express';
+import express from 'express';
 import cons from 'consolidate';
 import __ from 'underscore';
 import url from 'url';
 import querystring from 'querystring';
 import qs from 'qs';
 import randomstring from 'randomstring';
+import syncRequest from 'sync-request';
 
 const app = express();
 
@@ -27,13 +28,16 @@ const client = {
   clientId: 'oauth-client-1',
   clientSecret: 'oauth-client-secret-1',
   redirectUris: ['http://localhost:9000/callback'],
+  scope: 'foo',
 };
 
 const protectedResource = 'http://localhost:9002/resource';
 
 let state = null;
-let accessToken = null;
-const scope = null;
+
+let accessToken = '987tghjkiu6trfghjuytrghj';
+let scope = null;
+const refreshToken = 'j2r3oj32r23rmasd98uhjrk2o3i';
 
 const buildUrl = (base, options, hash) => {
   const newUrl = url.parse(base, true);
@@ -60,13 +64,18 @@ app.get('/', (_, res) => {
   res.render('index', {
     accessToken,
     scope,
+    refreshToken,
   });
 });
 
 app.get('/authorize', (_, res) => {
-  state = randomstring.generate();
+  accessToken = null;
+  scope = null;
+  state = randomstring();
+
   const authorizeUrl = buildUrl(authServer.authorizationEndpoint, {
     responseType: 'code',
+    scope: client.scope,
     clientId: client.clientId,
     redirectUri: client.redirectUris[0],
     state,
@@ -77,6 +86,19 @@ app.get('/authorize', (_, res) => {
 });
 
 app.get('/callback', (req, res) => {
+  if (req.query.error) {
+    // it's an error response, act accordingly
+    res.render('error', { error: req.query.error });
+    return;
+  }
+
+  if (req.query.state !== state) {
+    res.render('error', {
+      error: 'State value did not match',
+    });
+    return;
+  }
+
   const { code } = req.query;
 
   const formData = qs.stringify({
@@ -90,12 +112,14 @@ app.get('/callback', (req, res) => {
     Authorization: `Basic ${encodeClientCredentials(client.clientId, client.clientSecret)}`,
   };
 
-  const tokRes = request('post', authServer.tokenEndpoint, {
+  const tokRes = syncRequest('post', authServer.tokenEndpoint, {
     body: formData,
     headers,
   });
 
   const body = JSON.parse(tokRes.getBody());
+
+  console.log(body);
 
   accessToken = body.accessToken;
 
@@ -106,9 +130,31 @@ app.get('/callback', (req, res) => {
 });
 
 app.get('/fetch_resource', (req, res) => {
-  /*
-   * Use the access token to call the resource server
-   */
+  if (accessToken) {
+    res.render('error', {
+      error: 'Missing access token.',
+    });
+  }
+
+  const headers = {
+    Authorization: `Beaser ${accessToken}`,
+  };
+
+  const resource = syncRequest('POST', protectedResource, {
+    headers,
+  });
+
+  const { statusCode } = resource;
+
+  if (statusCode >= 200 && statusCode < 300) {
+    const body = JSON.parse(resource.getBody());
+    res.render('data', {
+      resource: body,
+    });
+  }
+  res.render('error', {
+    error: `Server returned response code: ${statusCode}`,
+  });
 });
 
 app.use('/', express.static('files/client'));
