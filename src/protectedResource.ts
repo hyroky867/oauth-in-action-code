@@ -1,13 +1,12 @@
 import express, { NextFunction, Response, Request } from 'express';
-import bodyParser from 'body-parser';
 import cons from 'consolidate';
 import cors from 'cors';
-import mysql from 'mysql2';
+import mysql, { RowDataPacket } from 'mysql2/promise';
 
 const app = express();
 
 app.use(
-  bodyParser.urlencoded({
+  express.urlencoded({
     extended: true,
   }),
 );
@@ -32,7 +31,7 @@ const resource: Resource = {
 
 app.options('/resource', [cors()]);
 
-const getAccessToken = (req: Request, _: Response, next: NextFunction): void => {
+const getAccessToken = async (req: Request, _: Response, next: NextFunction): Promise<void> => {
   // check the auth header first
   const auth = req.headers.authorization;
   let inToken = null;
@@ -45,34 +44,29 @@ const getAccessToken = (req: Request, _: Response, next: NextFunction): void => 
     inToken = req.query.accessToken;
   }
 
-  console.log('Incoming token: %s', inToken);
-  // nosql.one().make((builder) => {
-  //   console.log(builder);
-  //   builder.where('accessToken', inToken);
-  //   builder.callback((token) => {
-  //     if (token) {
-  //       console.log('We found a matching token: %s', inToken);
-  //     } else {
-  //       console.log('No matching token was found.');
-  //     }
-  //     req.accessToken = token;
-  //     next();
-  //   });
-  // });
-
-  const connection = mysql.createConnection({
-    host: '0.0.0.0',
+  const connection = await mysql.createConnection({
+    host: 'db',
     user: 'developer',
     database: 'oAuth',
     port: 3306,
     password: 'root',
   });
 
-  const query = 'SELECT `access_token` FROM `secrets` WHERE `access_token` = ? ';
-  const result = connection.execute(query, [inToken]);
-  // @ts-ignore
-  req.accessToken = 'hoge';
-  return next();
+  const sql = 'SELECT `access_token` FROM `secrets` WHERE `access_token` = ?';
+  try {
+    const [rows] = await connection.execute<RowDataPacket[]>(sql, [inToken]);
+    console.log(inToken, rows[0].access_token);
+    if (inToken !== rows[0].access_token) {
+      throw new Error(`mismatch token: ${inToken}`);
+    }
+    // @ts-ignore
+    req.accessToken = inToken;
+  } catch (e) {
+    console.log(e);
+  } finally {
+    connection.end();
+    next();
+  }
 };
 
 app.post('/resource', [cors(), getAccessToken], (req: Request, res: Response) => {

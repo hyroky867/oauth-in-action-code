@@ -15,7 +15,7 @@ app.set('views', 'files/client');
 
 const authServer: AuthServer = {
   authorizationEndpoint: 'http://0.0.0.0:9001/authorize',
-  tokenEndpoint: 'http://0.0.0.0:9001/token',
+  tokenEndpoint: 'http://authorization:9001/token',
 };
 
 const client: Client = {
@@ -25,7 +25,7 @@ const client: Client = {
   scope: 'foo',
 };
 
-const protectedResource = 'http://0.0.0.0:9002/resource';
+const protectedResource = 'http://resource:9002/resource';
 
 let state: string | null = null;
 
@@ -84,8 +84,9 @@ app.get('/authorize', (_: Request, res: Response): void => {
 const encodeClientCredentials = (clientId: string, clientSecret: string) =>
   Buffer.from(`${escape(clientId)}:${escape(clientSecret)}`).toString('base64');
 
-app.get('/callback', (req: Request, res: Response): void => {
+app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
   if (req.query.error !== undefined) {
+    console.log('/callback 1: %s', JSON.stringify(req.query.error));
     return res.render('error', {
       error: req.query.error,
     });
@@ -102,7 +103,7 @@ app.get('/callback', (req: Request, res: Response): void => {
   const { code } = req.query;
 
   const formData = qs.stringify({
-    grantType: 'authorization_code',
+    grantType: 'authorizationCode',
     code,
     redirectUri: client.redirectUris[0],
   });
@@ -117,30 +118,33 @@ app.get('/callback', (req: Request, res: Response): void => {
     refreshToken: string;
   }
 
-  axios
+  return axios
     .post<TokenResponse>(authServer.tokenEndpoint, formData, {
       headers,
     })
-    .then((tokRes: AxiosResponse<TokenResponse>) => {
+    .then((tokRes: AxiosResponse<TokenResponse>): void => {
       refreshToken = tokRes.data.refreshToken;
       scope = tokRes.data.scope;
       accessToken = tokRes.data.accessToken;
     })
-    .catch((e: AxiosError) => {
-      console.log('%s　hogehoge', JSON.stringify(e));
-      return res.render('error', {
+    .catch((e: AxiosError): void => {
+      const message = e.response?.data || e.message;
+      console.log('/callback 2: %s', JSON.stringify(e));
+      res.render('error', {
         // error: `Unable to fetch access token, server response: ${e.response?.status}`,
-        error: `Unable to fetch access token, server response: ${JSON.stringify(e)}`,
+        error: `Unable to fetch access token, server response: ${JSON.stringify(message)}`,
       });
-    });
-  return res.render('index', {
-    accessToken,
-    scope,
-    refreshToken,
-  });
+    })
+    .finally((): void =>
+      res.render('index', {
+        accessToken,
+        scope,
+        refreshToken,
+      }),
+    );
 });
 
-const refreshAccessToken = (_: Request, res: Response): void => {
+const refreshAccessToken = async (_: Request, res: Response): Promise<void> => {
   const formData = qs.stringify({
     grantType: 'refreshToken',
     refreshToken,
@@ -156,27 +160,29 @@ const refreshAccessToken = (_: Request, res: Response): void => {
     scope: string;
   }
 
-  axios
-    .post<RefreshTokenResponse>(authServer.authorizationEndpoint, formData, {
-      headers,
-    })
-    .then((tokRes: AxiosResponse<RefreshTokenResponse>) => {
-      refreshToken = tokRes.data.refreshToken;
-      scope = tokRes.data.scope;
-      accessToken = tokRes.data.accessToken;
-      return res.redirect('/fetch_resource');
-    })
-    .catch(() => {
-      refreshToken = null;
-      return res.render('error', {
-        error: 'Unable to refresh token.',
-      });
+  try {
+    const tokRes = await axios.post<RefreshTokenResponse>(
+      authServer.authorizationEndpoint,
+      formData,
+      {
+        headers,
+      },
+    );
+    refreshToken = tokRes.data.refreshToken;
+    scope = tokRes.data.scope;
+    accessToken = tokRes.data.accessToken;
+    return res.redirect('/fetch_resource');
+  } catch (e) {
+    refreshToken = null;
+    return res.render('error', {
+      error: 'Unable to refresh token.',
     });
+  }
 };
 
-app.get('/fetch_resource', (req: Request, res: Response) => {
+app.get('/fetch_resource', async (req: Request, res: Response): Promise<void> => {
   const headers = {
-    Authorization: `Beaser ${accessToken}`,
+    Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 
@@ -184,16 +190,19 @@ app.get('/fetch_resource', (req: Request, res: Response) => {
     resource: Resource;
   }
 
-  axios
-    .post<ResourceResponse>(protectedResource, null, {
+  try {
+    await axios.post<ResourceResponse>(protectedResource, null, {
       headers,
-    })
-    .then(() => refreshAccessToken(req, res))
-    .catch((e: AxiosError) =>
-      res.render('error', {
-        error: `Unable to fetch access token, server response: ${e.response?.status}`,
-      }),
-    );
+    });
+    return await refreshAccessToken(req, res);
+  } catch (e) {
+    const message = e.response?.data || e.message;
+    console.log('/fetch_resource 2: %s', JSON.stringify(e));
+    return res.render('error', {
+      // error: `Unable to fetch access token, server response: ${e.response?.status}`,
+      error: `Unable to fetch access token, server response: ${JSON.stringify(message)}`,
+    });
+  }
 });
 
 app.use('/', express.static('files/client'));

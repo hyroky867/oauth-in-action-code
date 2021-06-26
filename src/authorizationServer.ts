@@ -1,5 +1,4 @@
 import express, { Response, Request } from 'express';
-import bodyParser from 'body-parser';
 import cons from 'consolidate';
 import __ from 'underscore';
 import __s from 'underscore.string';
@@ -17,9 +16,9 @@ import {
 
 const app = express();
 
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(
-  bodyParser.urlencoded({
+  express.urlencoded({
     extended: true,
   }),
 );
@@ -75,12 +74,13 @@ app.get('/authorize', (req: AuthorizeRequest, res: Response): void => {
       error: 'Invalid redirect URI',
     });
   }
-  const rscope = req.query.scope ? req.query.scope.split(' ') : 'undefined';
-  const cscope = client.scope ? client.scope.split(' ') : 'undefined';
+  const rscope = req.query.scope ? req.query.scope.split(' ') : '';
+  const cscope = client.scope ? client.scope.split(' ') : '';
   if (__.difference(rscope, cscope).length > 0) {
     // client asked for a scope it couldn't have
     const url = new URL(req.query.redirectUri);
-    url.searchParams.append('error', 'invalid_scope');
+    url.searchParams.append('error', 'invalidScope');
+    console.log('/authorize 1: %s', url.toString());
     return res.redirect(url.toString());
   }
 
@@ -171,7 +171,7 @@ app.post('/token', (req: Request, res: Response) => {
   if (req.body.clientId !== undefined) {
     if (clientId !== undefined) {
       return res.status(401).json({
-        error: 'invalid_client',
+        error: 'invalidClient',
       });
     }
 
@@ -187,10 +187,12 @@ app.post('/token', (req: Request, res: Response) => {
   }
 
   if (client.clientSecret !== clientSecret) {
+    console.log('/token %s', clientSecret);
     return res.status(401).json({
       error: 'invalidClient',
     });
   }
+  console.log('/token %s', JSON.stringify(req.body));
 
   if (req.body.grantType === 'authorizationCode') {
     const code = codes[req.body.code];
@@ -206,7 +208,7 @@ app.post('/token', (req: Request, res: Response) => {
         }
 
         const connection = mysql.createConnection({
-          host: '0.0.0.0',
+          host: 'db',
           user: 'developer',
           database: 'oAuth',
           port: 3306,
@@ -216,6 +218,7 @@ app.post('/token', (req: Request, res: Response) => {
         const query =
           'INSERT INTO `secrets` (`access_token`, `client_id`, `scope`) VALUES (?, ?, ?)';
         connection.execute(query, [accessToken, clientId, cscope]);
+        connection.end();
 
         const tokenResponse = {
           accessToken,
@@ -226,15 +229,15 @@ app.post('/token', (req: Request, res: Response) => {
         return res.status(200).json(tokenResponse);
       }
       return res.status(400).json({
-        error: 'invalid_grant',
+        error: 'invalidGrant',
       });
     }
     return res.status(400).json({
-      error: 'invalid_grant',
+      error: 'invalidGrant',
     });
   }
   return res.status(400).json({
-    error: 'unsupported_grant_type',
+    error: 'unsupportedGrantType',
   });
 });
 
