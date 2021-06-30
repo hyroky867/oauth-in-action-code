@@ -1,11 +1,19 @@
 import express, { Request, Response } from 'express';
 import cons from 'consolidate';
-import __ from 'underscore';
 import qs from 'qs';
 import randomstring from 'randomstring';
 import axios, { AxiosError, AxiosResponse } from 'axios';
-import { Resource } from './protectedResource';
-import { Client, AuthServer } from './types/Authorization';
+import { URL } from 'url';
+import {
+  Client,
+  AuthServer,
+  ResourceResponse,
+  TokenResponse,
+  State,
+  AccessToken,
+  Scope,
+  RefreshToken,
+} from './types/Authorization';
 
 const app = express();
 
@@ -27,11 +35,11 @@ const client: Client = {
 
 const protectedResource = 'http://resource:9002/resource';
 
-let state: string | null = null;
+let state: State = null;
 
-let accessToken: string | null = '987tghjkiu6trfghjuytrghj';
-let scope: string | null = null;
-let refreshToken: string | null = 'j2r3oj32r23rmasd98uhjrk2o3i';
+let accessToken: AccessToken = '987tghjkiu6trfghjuytrghj';
+let scope: Scope = null;
+let refreshToken: RefreshToken = 'j2r3oj32r23rmasd98uhjrk2o3i';
 
 app.get('/', (_: Request, res: Response): void =>
   res.render('index', {
@@ -41,44 +49,20 @@ app.get('/', (_: Request, res: Response): void =>
   }),
 );
 
-interface BuildUrlParams {
-  base: string;
-  options: {
-    [key: string]: string;
-  };
-  hash?: string;
-}
-
-const buildUrl = ({ base, options, hash }: BuildUrlParams): string => {
-  const newUrl = new URL(base);
-  __.each(options, (value: string, key: string) => {
-    newUrl.searchParams.append(key, value);
-  });
-  if (hash !== undefined) {
-    newUrl.searchParams.append('hash', hash);
-  }
-  return newUrl.toString();
-};
-
 app.get('/authorize', (_: Request, res: Response): void => {
   accessToken = null;
+  refreshToken = null;
   scope = null;
   state = randomstring.generate();
 
-  const options = {
-    responseType: 'code',
-    scope: client.scope,
-    clientId: client.clientId,
-    redirectUri: client.redirectUris[0],
-    state,
-  };
-  const authorizeUrl = buildUrl({
-    base: authServer.authorizationEndpoint,
-    options,
-  });
+  const authorizeUrl = new URL(authServer.authorizationEndpoint);
+  authorizeUrl.searchParams.append('responseType', 'code');
+  authorizeUrl.searchParams.append('scope', client.scope);
+  authorizeUrl.searchParams.append('clientId', client.clientId);
+  authorizeUrl.searchParams.append('redirectUri', client.redirectUris[0]);
+  authorizeUrl.searchParams.append('state', state);
 
-  console.log('redirect', authorizeUrl);
-  return res.redirect(authorizeUrl);
+  return res.redirect(authorizeUrl.toString());
 });
 
 const encodeClientCredentials = (clientId: string, clientSecret: string) =>
@@ -100,23 +84,15 @@ app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
     });
   }
 
-  const { code } = req.query;
-
   const formData = qs.stringify({
     grantType: 'authorizationCode',
-    code,
+    code: req.query.code,
     redirectUri: client.redirectUris[0],
   });
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
     Authorization: `Basic ${encodeClientCredentials(client.clientId, client.clientSecret)}`,
   };
-
-  interface TokenResponse {
-    accessToken: string;
-    scope: string;
-    refreshToken: string;
-  }
 
   return axios
     .post<TokenResponse>(authServer.tokenEndpoint, formData, {
@@ -144,65 +120,28 @@ app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
     );
 });
 
-const refreshAccessToken = async (_: Request, res: Response): Promise<void> => {
-  const formData = qs.stringify({
-    grantType: 'refreshToken',
-    refreshToken,
-  });
+app.get('/fetch_resource', async (_: Request, res: Response): Promise<void> => {
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
-    Authorization: `Basic ${encodeClientCredentials(client.clientId, client.clientSecret)}`,
-  };
-
-  interface RefreshTokenResponse {
-    accessToken: string;
-    refreshToken: string;
-    scope: string;
-  }
-
-  try {
-    const tokRes = await axios.post<RefreshTokenResponse>(
-      authServer.authorizationEndpoint,
-      formData,
-      {
-        headers,
-      },
-    );
-    refreshToken = tokRes.data.refreshToken;
-    scope = tokRes.data.scope;
-    accessToken = tokRes.data.accessToken;
-    return res.redirect('/fetch_resource');
-  } catch (e) {
-    refreshToken = null;
-    return res.render('error', {
-      error: 'Unable to refresh token.',
-    });
-  }
-};
-
-app.get('/fetch_resource', async (req: Request, res: Response): Promise<void> => {
-  const headers = {
     Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/x-www-form-urlencoded',
   };
 
-  interface ResourceResponse {
-    resource: Resource;
-  }
-
-  try {
-    await axios.post<ResourceResponse>(protectedResource, null, {
+  return axios
+    .post<ResourceResponse>(protectedResource, null, {
       headers,
+    })
+    .then((fetchResourceRes: AxiosResponse<ResourceResponse>): void =>
+      res.render('data', {
+        resource: fetchResourceRes.data.resource,
+      }),
+    )
+    .catch((e: AxiosError): void => {
+      const message = e.response?.data || e.message;
+      console.log('/fetch_resource: %s', JSON.stringify(e));
+      res.render('error', {
+        error: `Server returned response code: : ${JSON.stringify(message)}`,
+      });
     });
-    return await refreshAccessToken(req, res);
-  } catch (e) {
-    const message = e.response?.data || e.message;
-    console.log('/fetch_resource 2: %s', JSON.stringify(e));
-    return res.render('error', {
-      // error: `Unable to fetch access token, server response: ${e.response?.status}`,
-      error: `Unable to fetch access token, server response: ${JSON.stringify(message)}`,
-    });
-  }
 });
 
 app.use('/', express.static('files/client'));

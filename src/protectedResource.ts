@@ -2,6 +2,7 @@ import express, { NextFunction, Response, Request } from 'express';
 import cons from 'consolidate';
 import cors from 'cors';
 import mysql, { RowDataPacket } from 'mysql2/promise';
+import { Resource } from './types/Authorization';
 
 const app = express();
 
@@ -18,11 +19,6 @@ app.set('json spaces', 4);
 
 app.use('/', express.static('files/protectedResource'));
 app.use(cors());
-
-export interface Resource {
-  name: string;
-  description: string;
-}
 
 const resource: Resource = {
   name: 'Protected Resource',
@@ -69,12 +65,13 @@ const getAccessToken = async (req: Request, _: Response, next: NextFunction): Pr
   }
 };
 
-app.post('/resource', [cors(), getAccessToken], (req: Request, res: Response) => {
+app.post('/resource', [cors(), getAccessToken], (req: Request, res: Response): void => {
   // @ts-ignore
   if (req.accessToken !== undefined) {
-    return res.json(resource);
+    res.json(resource);
+    return;
   }
-  return res.status(401).end();
+  res.status(401).end();
 });
 
 const port = 9002;

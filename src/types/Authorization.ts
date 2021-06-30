@@ -1,6 +1,11 @@
 import { Request } from 'express';
 import { ParsedQs } from 'qs';
 
+export type State = string | null;
+export type AccessToken = string | null;
+export type Scope = string | null;
+export type RefreshToken = string | null;
+
 export interface AuthServer {
   authorizationEndpoint: string;
   tokenEndpoint: string;
@@ -13,11 +18,12 @@ export interface Client {
   scope: string;
 }
 
-type AuthorizeQueryKeys = 'clientId' | 'redirectUri' | 'scope' | 'error';
-
 export interface AuthorizeRequest extends Request {
   query: {
-    [key in AuthorizeQueryKeys]: string;
+    clientId: string;
+    redirectUri: string;
+    scope: string;
+    error: string;
   };
 }
 
@@ -27,14 +33,17 @@ export interface AuthorizeParsedQs extends ParsedQs {
   state?: string;
 }
 
-type ApproveBodyKeys = 'reqid' | 'approve' | 'user';
-
 export interface ApproveRequest extends Request {
   body: {
-    [key in ApproveBodyKeys]: string;
+    reqid: string;
+    approve: string;
+    user: string;
   };
   query: {
-    [key in AuthorizeQueryKeys]: string;
+    clientId: string;
+    redirectUri: string;
+    scope: string;
+    error: string;
   };
 }
 
@@ -44,14 +53,46 @@ export interface Code {
   user: string;
 }
 
-type TokenBodyKeys = 'clientId' | 'clientSecret' | 'grantType' | 'code';
-
 export interface TokenRequest extends Request {
   body: {
-    [key in TokenBodyKeys]: string;
+    clientId: string;
+    clientSecret: string;
+    grantType: GrantType;
+    code: string;
+    scope: string;
+    refreshToken: string;
+    userName: string;
+    password: string;
   };
 }
 
-export type GrantType = 'authorizationCode';
+export type GrantType = 'authorizationCode' | 'clientCredentials' | 'refreshToken' | 'password';
 
-export type ResponseType = 'code';
+export interface User {
+  sub: string;
+  preferredUsername: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  userName?: string;
+  password?: string;
+}
+
+export type TokenType = 'Bearer';
+
+export interface TokenResponse {
+  accessToken: AccessToken;
+  tokenType: TokenType;
+  refreshToken: RefreshToken;
+  scope: Scope;
+  state?: State;
+}
+
+export interface Resource {
+  name: string;
+  description: string;
+}
+
+export interface ResourceResponse {
+  resource: Resource;
+}
