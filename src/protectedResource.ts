@@ -68,7 +68,11 @@ const getAccessToken = async (req: Request, _: Response, next: NextFunction): Pr
 app.post('/resource', [cors(), getAccessToken], (req: Request, res: Response): void => {
   // @ts-ignore
   if (req.accessToken !== undefined) {
-    res.json(resource);
+    res.json({
+      resource,
+      // @ts-ignore
+      scope: req.accessToken.scope,
+    });
     return;
   }
   res.status(401).end();

@@ -30,16 +30,16 @@ const client: Client = {
   clientId: 'oauth-client-1',
   clientSecret: 'oauth-client-secret-1',
   redirectUris: ['http://0.0.0.0:9000/callback'],
-  scope: 'foo',
+  scope: 'foo bar',
 };
 
 const protectedResource = 'http://resource:9002/resource';
 
 let state: State = null;
 
-let accessToken: AccessToken = '987tghjkiu6trfghjuytrghj';
+let accessToken: AccessToken = null;
 let scope: Scope = null;
-let refreshToken: RefreshToken = 'j2r3oj32r23rmasd98uhjrk2o3i';
+let refreshToken: RefreshToken = null;
 
 app.get('/', (_: Request, res: Response): void =>
   res.render('index', {
@@ -62,11 +62,9 @@ app.get('/authorize', (_: Request, res: Response): void => {
   authorizeUrl.searchParams.append('redirectUri', client.redirectUris[0]);
   authorizeUrl.searchParams.append('state', state);
 
+  console.log('redirect', authorizeUrl.toString());
   return res.redirect(authorizeUrl.toString());
 });
-
-const encodeClientCredentials = (clientId: string, clientSecret: string) =>
-  Buffer.from(`${escape(clientId)}:${escape(clientSecret)}`).toString('base64');
 
 app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
   if (req.query.error !== undefined) {
@@ -91,7 +89,9 @@ app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
   });
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
-    Authorization: `Basic ${encodeClientCredentials(client.clientId, client.clientSecret)}`,
+    Authorization: `Basic ${Buffer.from(
+      `${escape(client.clientId)}:${escape(client.clientSecret)}`,
+    ).toString('base64')}`,
   };
 
   return axios
@@ -100,8 +100,14 @@ app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
     })
     .then((tokRes: AxiosResponse<TokenResponse>): void => {
       refreshToken = tokRes.data.refreshToken;
-      scope = tokRes.data.scope;
+      scope = tokRes.data.scope ?? null;
       accessToken = tokRes.data.accessToken;
+      console.log('Got access token: %s', accessToken);
+      res.render('index', {
+        accessToken,
+        scope,
+        refreshToken,
+      });
     })
     .catch((e: AxiosError): void => {
       const message = e.response?.data || e.message;
@@ -110,14 +116,7 @@ app.get('/callback', (req: Request, res: Response): Promise<void> | void => {
         // error: `Unable to fetch access token, server response: ${e.response?.status}`,
         error: `Unable to fetch access token, server response: ${JSON.stringify(message)}`,
       });
-    })
-    .finally((): void =>
-      res.render('index', {
-        accessToken,
-        scope,
-        refreshToken,
-      }),
-    );
+    });
 });
 
 app.get('/fetch_resource', async (_: Request, res: Response): Promise<void> => {

@@ -5,10 +5,14 @@ export type State = string | null;
 export type AccessToken = string | null;
 export type Scope = string | null;
 export type RefreshToken = string | null;
+export type IDToken = string | null;
 
 export interface AuthServer {
   authorizationEndpoint: string;
   tokenEndpoint: string;
+  revocationEndpoint?: string;
+  registrationEndpoint?: string;
+  userInfoEndpoint?: string;
 }
 
 export interface Client {
@@ -33,12 +37,14 @@ export interface AuthorizeParsedQs extends ParsedQs {
   state?: string;
 }
 
+export interface ApproveRequestBody {
+  reqid: string;
+  approve: string;
+  user: string;
+}
+
 export interface ApproveRequest extends Request {
-  body: {
-    reqid: string;
-    approve: string;
-    user: string;
-  };
+  body: ApproveRequestBody;
   query: {
     clientId: string;
     redirectUri: string;
@@ -48,9 +54,9 @@ export interface ApproveRequest extends Request {
 }
 
 export interface Code {
-  authorizationEndpointRequest: AuthorizeParsedQs;
-  scope: string[];
-  user: string;
+  request: AuthorizeParsedQs;
+  // scope: string[];
+  // user: string;
 }
 
 export interface TokenRequest extends Request {
@@ -84,7 +90,7 @@ export interface TokenResponse {
   accessToken: AccessToken;
   tokenType: TokenType;
   refreshToken: RefreshToken;
-  scope: Scope;
+  scope?: Scope;
   state?: State;
 }
 
@@ -95,4 +101,17 @@ export interface Resource {
 
 export interface ResourceResponse {
   resource: Resource;
+}
+
+export interface ClientCredential {
+  id: string;
+  secret: string;
+}
+
+export interface RSAKey {
+  alg: string;
+  e: string;
+  n: string;
+  kty: string;
+  kid: string;
 }

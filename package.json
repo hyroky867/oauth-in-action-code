@@ -22,7 +22,6 @@
     "ts-node": "^10.0.0",
     "typescript": "^4.3.2",
     "underscore": "^1.13.1",
-    "underscore.string": "^3.3.5",
     "yarn": "^1.22.10"
   },
   "devDependencies": {
@@ -33,8 +32,6 @@
     "@types/node": "^15.12.2",
     "@types/qs": "^6.9.6",
     "@types/randomstring": "^1.1.6",
-    "@types/underscore": "^1.11.2",
-    "@types/underscore.string": "^0.0.38",
     "@typescript-eslint/eslint-plugin": "^4.4.1",
     "eslint": "^7.27.0",
     "eslint-config-airbnb-typescript": "^12.3.1",

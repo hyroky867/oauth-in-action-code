@@ -38,17 +38,35 @@
   <div class="container">
 
     <div class="jumbotron">
-      <p>Access token value: <span class="label label-danger">
-          <%- accessToken ?? 'NONE' %>
-        </span></p>
-      <p>Scope value: <span class="label label-danger">
-          <%- scope ?? 'NONE' %>
-        </span></p>
-      <p>Refresh token value: <span class="label label-danger">
-          <%- refreshToken ?? 'NONE' %>
-        </span></p>
-      <a class="btn btn-default" href="/authorize">Get OAuth Token</a>
-      <a class="btn btn-default" href="/fetch_resource">Get Protected Resource</a>
+
+      <h2>Favorites API</h2>
+
+      <p>Resource owner's name: <%- data.user %>
+
+          <p>Movies:</p>
+          <ul>
+            <% _.each(data.favorites.movies, function(v) { %>
+              <li>
+                <%- v %>
+                  <% }); %>
+          </ul>
+          <p>Foods:</p>
+          <ul>
+            <% _.each(data.favorites.foods, function(v) { %>
+              <li>
+                <%- v %>
+                  <% }); %>
+          </ul>
+          <p>Music:</p>
+          <ul>
+            <% _.each(data.favorites.music, function(v) { %>
+              <li>
+                <%- v %>
+                  <% }); %>
+          </ul>
+
+          <a href="/favorites" class="btn btn-default">Get Favorites</a>
+
     </div>
 
   </div><!-- /.container -->
