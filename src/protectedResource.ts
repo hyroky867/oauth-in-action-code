@@ -2,7 +2,7 @@ import express, { NextFunction, Response, Request } from 'express';
 import cons from 'consolidate';
 import cors from 'cors';
 import mysql, { RowDataPacket } from 'mysql2/promise';
-import { Resource } from './types/Authorization';
+import { Resource, UserInfoKeyType, UserInfoProfileKey } from './types/Authorization';
 
 const app = express();
 
@@ -65,18 +65,100 @@ const getAccessToken = async (req: Request, _: Response, next: NextFunction): Pr
   }
 };
 
+app.options('/resource', [cors()]);
+
 app.post('/resource', [cors(), getAccessToken], (req: Request, res: Response): void => {
   // @ts-ignore
   if (req.accessToken !== undefined) {
     res.json({
       resource,
-      // @ts-ignore
-      scope: req.accessToken.scope,
     });
     return;
   }
   res.status(401).end();
 });
+
+const requireAccessToken = (req: Request, res: Response, next: NextFunction): void => {
+  // @ts-ignore
+  if (req.accessToken !== undefined) {
+    return next();
+  }
+  return res.status(401).end();
+};
+
+const userInfoEndpoint = (req: Request, res: Response): void => {
+  // @ts-ignore
+  const { accessToken, user, scope } = req;
+  if (accessToken.scope.contains('openid')) {
+    res.status(403).end();
+    return;
+  }
+
+  if (user === undefined) {
+    res.status(404).end();
+    return;
+  }
+
+  const profileClaim = [
+    'name',
+    'family_name',
+    'given_name',
+    'middle_name',
+    'nickname',
+    'preferred_username',
+    'profile',
+    'picture',
+    'website',
+    'gender',
+    'birthdate',
+    'zoneinfo',
+    'locale',
+    'updated_at',
+  ];
+
+  const result = scope.forEach<
+    {
+      [key in UserInfoKeyType]: string;
+    }
+  >((item: string) => {
+    if (item === 'openid' && user) {
+      ['sub'].forEach((claim) => {
+        if (user[claim] !== undefined) {
+          result[claim] = user[claim];
+        }
+      });
+    } else if (item === 'profile') {
+      profileClaim.forEach((claim) => {
+        if (user[claim]) {
+          result[claim] = user[claim];
+        }
+      });
+    } else if (item === 'email') {
+      ['email', 'emailVerified'].forEach((claim) => {
+        if (user[claim]) {
+          result[claim] = user[claim];
+        }
+      });
+    } else if (item === 'address') {
+      ['address'].forEach((claim) => {
+        if (user[claim]) {
+          result[claim] = user[claim];
+        }
+      });
+    } else if (item === 'phone') {
+      ['phoneNumber', 'phoneNumberVerified'].forEach((claim) => {
+        if (user[claim]) {
+          result[claim] = user[claim];
+        }
+      });
+    }
+  });
+
+  res.status(200).json(result);
+};
+
+app.get('/userinfo', [getAccessToken, requireAccessToken, userInfoEndpoint]);
+app.post('/userinfo', [getAccessToken, requireAccessToken, userInfoEndpoint]);
 
 const port = 9002;
 const address = '0.0.0.0';

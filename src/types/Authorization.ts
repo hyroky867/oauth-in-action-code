@@ -10,9 +10,7 @@ export type IDToken = string | null;
 export interface AuthServer {
   authorizationEndpoint: string;
   tokenEndpoint: string;
-  revocationEndpoint?: string;
-  registrationEndpoint?: string;
-  userInfoEndpoint?: string;
+  userInfoEndpoint: string;
 }
 
 export interface Client {
@@ -31,10 +29,13 @@ export interface AuthorizeRequest extends Request {
   };
 }
 
+export type ResponseType = 'code' | 'token';
+
 export interface AuthorizeParsedQs extends ParsedQs {
   clientId: string;
   redirectUri: string;
   state?: string;
+  responseType?: ResponseType;
 }
 
 export interface ApproveRequestBody {
@@ -55,8 +56,9 @@ export interface ApproveRequest extends Request {
 
 export interface Code {
   request: AuthorizeParsedQs;
-  // scope: string[];
+  scope: string[];
   // user: string;
+  user: User;
 }
 
 export interface TokenRequest extends Request {
@@ -64,9 +66,9 @@ export interface TokenRequest extends Request {
     clientId: string;
     clientSecret: string;
     grantType: GrantType;
-    code: string;
-    scope: string;
-    refreshToken: string;
+    code: Code;
+    scope: Scope;
+    refreshToken: RefreshToken;
     userName: string;
     password: string;
   };
@@ -92,6 +94,7 @@ export interface TokenResponse {
   refreshToken: RefreshToken;
   scope?: Scope;
   state?: State;
+  idToken?: string;
 }
 
 export interface Resource {
@@ -109,9 +112,60 @@ export interface ClientCredential {
 }
 
 export interface RSAKey {
-  alg: string;
+  alg: TokenRequestALG;
   e: string;
+  d: string;
   n: string;
   kty: string;
   kid: string;
 }
+
+export interface ProtectedResource {
+  resourceId: string;
+  resourceSecret: string;
+}
+
+export type TokenRequestType = 'JWT';
+export type TokenRequestALG = 'RS256';
+
+export interface TokenRequestHeader {
+  typ: TokenRequestType;
+  alg: TokenRequestALG;
+  kid: string;
+}
+
+export interface TokenRequestPayload {
+  iss: string;
+  sub: string;
+  aud: string;
+  iat: number;
+  exp: number;
+  nonce?: any;
+}
+
+export type UserInfoProfileKey =
+  | 'name'
+  | 'familyName'
+  | 'givenName'
+  | 'middleName'
+  | 'nickname'
+  | 'preferredUsername'
+  | 'profile'
+  | 'picture'
+  | 'website'
+  | 'gender'
+  | 'birthdate'
+  | 'zoneinfo'
+  | 'locale'
+  | 'updatedAt';
+
+export type UserInfoEmailType = 'email' | 'emailVerified';
+
+export type UserInfoPhoneType = 'phoneNumber' | 'phoneNumberVerified';
+
+export type UserInfoKeyType =
+  | 'sub'
+  | UserInfoProfileKey
+  | UserInfoEmailType
+  | 'address'
+  | UserInfoPhoneType;
